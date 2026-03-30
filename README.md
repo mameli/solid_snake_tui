@@ -4,6 +4,15 @@ Snake for the terminal, built with Bun, OpenTUI, and Solid.
 
 ![Solid Snake TUI](./public/solid_snake.jpg)
 
+## Why the name?
+
+It is called **Solid Snake TUI** for a simple reason:
+
+- `Solid` because the game is built with Solid
+- `Snake` because it is Snake
+
+It is also a small nod to the Metal Gear character name, but the project name mainly comes from the tech stack plus the game itself.
+
 ## Requirements
 
 - [Bun](https://bun.sh/)
