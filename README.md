@@ -71,6 +71,12 @@ Run once:
 bun start
 ```
 
+Build the published CLI bundle:
+
+```bash
+bun run build
+```
+
 ## Controls
 
 - `Arrow keys` or `WASD`: move

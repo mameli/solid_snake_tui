@@ -3,21 +3,25 @@
   "version": "0.1.3",
   "description": "Snake in the terminal built with OpenTUI and Solid",
   "type": "module",
-  "module": "src/index.tsx",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "exports": {
+    ".": "./dist/index.js"
+  },
   "bin": {
-    "solid-snake-tui": "./bin/solid-snake-tui.ts"
+    "solid-snake-tui": "./bin/solid-snake-tui.js"
   },
   "files": [
     "bin",
+    "dist",
     "public",
-    "src",
-    "README.md",
-    "bunfig.toml",
-    "tsconfig.json"
+    "README.md"
   ],
   "scripts": {
+    "build": "bun run scripts/build.ts",
     "dev": "bun run --watch src/index.tsx",
-    "start": "bun run src/index.tsx"
+    "start": "bun run src/index.tsx",
+    "prepack": "bun run build"
   },
   "engines": {
     "bun": ">=1.0.0"
