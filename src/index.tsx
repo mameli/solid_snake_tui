@@ -399,8 +399,8 @@ const App = () => {
     <box border padding={1} flexDirection="column" gap={1}>
       <text>Solid Snake Terminal</text>
       <text>
-        Score: {score()} | Length: {snake().length} | Board: {boardWidth()}x
-        {boardHeight()} | Speed: {speedLabel()}
+        Score: {score()} | Board: {boardWidth()}x{boardHeight()} | Speed:{" "}
+        {speedLabel()}
       </text>
       <box border padding={0}>
         <text>
