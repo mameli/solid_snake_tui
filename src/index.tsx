@@ -9,6 +9,7 @@ import type { JSX } from "@opentui/solid";
 import { createEffect, createSignal, onCleanup } from "solid-js";
 
 const TICK_MS = 120;
+const BOOST_MULTIPLIER = 2;
 const INITIAL_DIRECTION = "right" as const;
 const INITIAL_SNAKE_LENGTH = 3;
 const EMPTY_CELL = "  ";
@@ -173,6 +174,9 @@ const App = () => {
   const [isPaused, setIsPaused] = createSignal(false);
   const [gameOver, setGameOver] = createSignal(false);
   const [hasWon, setHasWon] = createSignal(false);
+  const [speedBoost, setSpeedBoost] = createSignal(false);
+  const effectiveTickMs = () =>
+    speedBoost() ? Math.max(1, Math.floor(TICK_MS / BOOST_MULTIPLIER)) : TICK_MS;
 
   const resetGame = () => {
     if (terminalTooSmall()) {
@@ -183,6 +187,7 @@ const App = () => {
       setIsPaused(false);
       setGameOver(false);
       setHasWon(false);
+      setSpeedBoost(false);
       return;
     }
 
@@ -195,6 +200,7 @@ const App = () => {
     setIsPaused(false);
     setGameOver(false);
     setHasWon(false);
+    setSpeedBoost(false);
   };
 
   createEffect(() => {
@@ -242,64 +248,72 @@ const App = () => {
       return;
     }
 
+    if (nextDirection === (queuedDirection() ?? direction())) {
+      setSpeedBoost(true);
+      return;
+    }
+
     if (isOppositeDirection(direction(), nextDirection)) {
       return;
     }
 
     setQueuedDirection(nextDirection);
+    setSpeedBoost(false);
   });
 
-  const interval = setInterval(() => {
-    if (gameOver() || isPaused() || terminalTooSmall() || snake().length === 0) {
-      return;
-    }
+  createEffect(() => {
+    const interval = setInterval(() => {
+      if (gameOver() || isPaused() || terminalTooSmall() || snake().length === 0) {
+        return;
+      }
 
-    const currentSnake = snake();
-    const appliedDirection = queuedDirection() ?? direction();
-    const nextHead = getNextHead(
-      currentSnake[0]!,
-      appliedDirection,
-      boardWidth(),
-      boardHeight(),
-    );
-    const willEat = positionsEqual(nextHead, food());
-    const collisionBody = willEat ? currentSnake : currentSnake.slice(0, -1);
+      const currentSnake = snake();
+      const appliedDirection = queuedDirection() ?? direction();
+      const nextHead = getNextHead(
+        currentSnake[0]!,
+        appliedDirection,
+        boardWidth(),
+        boardHeight(),
+      );
+      const willEat = positionsEqual(nextHead, food());
+      const collisionBody = willEat ? currentSnake : currentSnake.slice(0, -1);
 
-    if (isOnSnake(nextHead, collisionBody)) {
-      setGameOver(true);
-      return;
-    }
+      if (isOnSnake(nextHead, collisionBody)) {
+        setGameOver(true);
+        return;
+      }
 
-    const nextSnake = [nextHead, ...currentSnake];
+      const nextSnake = [nextHead, ...currentSnake];
 
-    if (!willEat) {
-      nextSnake.pop();
-    }
+      if (!willEat) {
+        nextSnake.pop();
+      }
 
-    setSnake(nextSnake);
-    setDirection(appliedDirection);
-    setQueuedDirection(null);
+      setSnake(nextSnake);
+      setDirection(appliedDirection);
+      setQueuedDirection(null);
 
-    if (!willEat) {
-      return;
-    }
+      if (!willEat) {
+        return;
+      }
 
-    const nextFood = getRandomFreePosition(
-      nextSnake,
-      boardWidth(),
-      boardHeight(),
-    );
+      const nextFood = getRandomFreePosition(
+        nextSnake,
+        boardWidth(),
+        boardHeight(),
+      );
 
-    if (!nextFood) {
-      setHasWon(true);
-      setGameOver(true);
-      return;
-    }
+      if (!nextFood) {
+        setHasWon(true);
+        setGameOver(true);
+        return;
+      }
 
-    setFood(nextFood);
-  }, TICK_MS);
+      setFood(nextFood);
+    }, effectiveTickMs());
 
-  onCleanup(() => clearInterval(interval));
+    onCleanup(() => clearInterval(interval));
+  });
 
   const score = () => Math.max(0, snake().length - INITIAL_SNAKE_LENGTH);
   const statusText = () => {
@@ -339,7 +353,7 @@ const App = () => {
       <text>Solid Snake Terminal</text>
       <text>
         Score: {score()} | Length: {snake().length} | Board: {boardWidth()}x
-        {boardHeight()} | Speed: {TICK_MS}ms
+        {boardHeight()} | Speed: {effectiveTickMs()}ms
       </text>
       <box border padding={0}>
         <text>
