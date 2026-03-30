@@ -13,9 +13,13 @@ const BOOST_MULTIPLIER = 2;
 const INITIAL_DIRECTION = "right" as const;
 const INITIAL_SNAKE_LENGTH = 3;
 const EMPTY_CELL = "  ";
-const FOOD_CELL = "🍎 ";
+const FOOD_CELL = "🍎";
 const HEAD_CELL = "🐲";
 const BODY_CELL = "x ";
+const TAIL_LEFT_CELL = "< ";
+const TAIL_RIGHT_CELL = "> ";
+const TAIL_UP_CELL = "^ ";
+const TAIL_DOWN_CELL = "v ";
 const CELL_WIDTH = HEAD_CELL.length;
 const MIN_BOARD_WIDTH = 8;
 const MIN_BOARD_HEIGHT = 6;
@@ -69,6 +73,42 @@ function getNextHead(
 
 function isOnSnake(position: Position, snake: Position[]) {
   return snake.some((segment) => positionsEqual(segment, position));
+}
+
+function getTailCell(
+  snake: Position[],
+  boardWidth: number,
+  boardHeight: number,
+) {
+  if (snake.length < 2) {
+    return BODY_CELL;
+  }
+
+  const tail = snake[snake.length - 1]!;
+  const previous = snake[snake.length - 2]!;
+
+  if (
+    wrapCoordinate(tail.x + 1, boardWidth) === previous.x &&
+    tail.y === previous.y
+  ) {
+    return TAIL_LEFT_CELL;
+  }
+
+  if (
+    wrapCoordinate(tail.x - 1, boardWidth) === previous.x &&
+    tail.y === previous.y
+  ) {
+    return TAIL_RIGHT_CELL;
+  }
+
+  if (
+    wrapCoordinate(tail.y + 1, boardHeight) === previous.y &&
+    tail.x === previous.x
+  ) {
+    return TAIL_UP_CELL;
+  }
+
+  return TAIL_DOWN_CELL;
 }
 
 function getRandomFreePosition(
@@ -134,6 +174,12 @@ function drawBoard(
 
       if (segmentIndex === 0) {
         output.push(<span style={{ fg: "#22c55e" }}>{HEAD_CELL}</span>);
+      } else if (segmentIndex === snake.length - 1) {
+        output.push(
+          <span style={{ fg: "#22c55e" }}>
+            {getTailCell(snake, boardWidth, boardHeight)}
+          </span>,
+        );
       } else if (segmentIndex > 0) {
         output.push(<span style={{ fg: "#22c55e" }}>{BODY_CELL}</span>);
       } else {
@@ -177,6 +223,7 @@ const App = () => {
   const [speedBoost, setSpeedBoost] = createSignal(false);
   const effectiveTickMs = () =>
     speedBoost() ? Math.max(1, Math.floor(TICK_MS / BOOST_MULTIPLIER)) : TICK_MS;
+  const speedLabel = () => (speedBoost() ? "2x" : "1x");
 
   const resetGame = () => {
     if (terminalTooSmall()) {
@@ -353,7 +400,7 @@ const App = () => {
       <text>Solid Snake Terminal</text>
       <text>
         Score: {score()} | Length: {snake().length} | Board: {boardWidth()}x
-        {boardHeight()} | Speed: {effectiveTickMs()}ms
+        {boardHeight()} | Speed: {speedLabel()}
       </text>
       <box border padding={0}>
         <text>
