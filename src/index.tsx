@@ -1,19 +1,18 @@
-import { render, useKeyboard } from "@opentui/solid";
-import { createSignal, onCleanup } from "solid-js";
+import { render, useKeyboard, useTerminalDimensions } from "@opentui/solid";
+import { createEffect, createSignal, onCleanup } from "solid-js";
 
-const BOARD_WIDTH = 24;
-const BOARD_HEIGHT = 14;
 const TICK_MS = 120;
 const INITIAL_DIRECTION = "right" as const;
+const INITIAL_SNAKE_LENGTH = 3;
 const EMPTY_CELL = "  ";
 const FOOD_CELL = "* ";
 const HEAD_CELL = "@ ";
 const BODY_CELL = "o ";
-const INITIAL_SNAKE = [
-  { x: 6, y: 7 },
-  { x: 5, y: 7 },
-  { x: 4, y: 7 },
-];
+const CELL_WIDTH = HEAD_CELL.length;
+const MIN_BOARD_WIDTH = 8;
+const MIN_BOARD_HEIGHT = 6;
+const RESERVED_HORIZONTAL_CHARS = 6;
+const RESERVED_VERTICAL_LINES = 13;
 
 type Position = {
   x: number;
@@ -39,31 +38,40 @@ function wrapCoordinate(value: number, size: number) {
   return ((value % size) + size) % size;
 }
 
-function getNextHead(head: Position, direction: Direction): Position {
+function getNextHead(
+  head: Position,
+  direction: Direction,
+  boardWidth: number,
+  boardHeight: number,
+): Position {
   if (direction === "up") {
-    return { x: head.x, y: wrapCoordinate(head.y - 1, BOARD_HEIGHT) };
+    return { x: head.x, y: wrapCoordinate(head.y - 1, boardHeight) };
   }
 
   if (direction === "down") {
-    return { x: head.x, y: wrapCoordinate(head.y + 1, BOARD_HEIGHT) };
+    return { x: head.x, y: wrapCoordinate(head.y + 1, boardHeight) };
   }
 
   if (direction === "left") {
-    return { x: wrapCoordinate(head.x - 1, BOARD_WIDTH), y: head.y };
+    return { x: wrapCoordinate(head.x - 1, boardWidth), y: head.y };
   }
 
-  return { x: wrapCoordinate(head.x + 1, BOARD_WIDTH), y: head.y };
+  return { x: wrapCoordinate(head.x + 1, boardWidth), y: head.y };
 }
 
 function isOnSnake(position: Position, snake: Position[]) {
   return snake.some((segment) => positionsEqual(segment, position));
 }
 
-function getRandomFreePosition(snake: Position[]) {
+function getRandomFreePosition(
+  snake: Position[],
+  boardWidth: number,
+  boardHeight: number,
+) {
   const freeCells: Position[] = [];
 
-  for (let y = 0; y < BOARD_HEIGHT; y += 1) {
-    for (let x = 0; x < BOARD_WIDTH; x += 1) {
+  for (let y = 0; y < boardHeight; y += 1) {
+    for (let x = 0; x < boardWidth; x += 1) {
       const candidate = { x, y };
 
       if (!isOnSnake(candidate, snake)) {
@@ -79,19 +87,34 @@ function getRandomFreePosition(snake: Position[]) {
   return freeCells[Math.floor(Math.random() * freeCells.length)];
 }
 
-function createInitialSnake() {
-  return INITIAL_SNAKE.map((segment) => ({ ...segment }));
+function createInitialSnake(boardWidth: number, boardHeight: number) {
+  const headX = Math.max(INITIAL_SNAKE_LENGTH - 1, Math.floor(boardWidth / 2));
+  const y = Math.floor(boardHeight / 2);
+
+  return Array.from({ length: INITIAL_SNAKE_LENGTH }, (_, index) => ({
+    x: headX - index,
+    y,
+  }));
 }
 
-function createInitialFood(snake: Position[]) {
-  return getRandomFreePosition(snake) ?? { x: 0, y: 0 };
+function createInitialFood(
+  snake: Position[],
+  boardWidth: number,
+  boardHeight: number,
+) {
+  return getRandomFreePosition(snake, boardWidth, boardHeight) ?? { x: 0, y: 0 };
 }
 
-function drawBoard(snake: Position[], food: Position) {
+function drawBoard(
+  snake: Position[],
+  food: Position,
+  boardWidth: number,
+  boardHeight: number,
+) {
   let output = "";
 
-  for (let y = 0; y < BOARD_HEIGHT; y += 1) {
-    for (let x = 0; x < BOARD_WIDTH; x += 1) {
+  for (let y = 0; y < boardHeight; y += 1) {
+    for (let x = 0; x < boardWidth; x += 1) {
       if (x === food.x && y === food.y) {
         output += FOOD_CELL;
         continue;
@@ -110,7 +133,7 @@ function drawBoard(snake: Position[], food: Position) {
       }
     }
 
-    if (y < BOARD_HEIGHT - 1) {
+    if (y < boardHeight - 1) {
       output += "\n";
     }
   }
@@ -119,27 +142,58 @@ function drawBoard(snake: Position[], food: Position) {
 }
 
 const App = () => {
-  const [snake, setSnake] = createSignal<Position[]>(createInitialSnake());
+  const terminalDimensions = useTerminalDimensions();
+  const boardWidth = () =>
+    Math.max(
+      1,
+      Math.floor(
+        Math.max(0, terminalDimensions().width - RESERVED_HORIZONTAL_CHARS) /
+          CELL_WIDTH,
+      ),
+    );
+  const boardHeight = () =>
+    Math.max(1, terminalDimensions().height - RESERVED_VERTICAL_LINES);
+  const terminalTooSmall = () =>
+    boardWidth() < MIN_BOARD_WIDTH || boardHeight() < MIN_BOARD_HEIGHT;
+
+  const [snake, setSnake] = createSignal<Position[]>([]);
   const [direction, setDirection] = createSignal<Direction>(INITIAL_DIRECTION);
   const [queuedDirection, setQueuedDirection] = createSignal<Direction | null>(
     null,
   );
-  const [food, setFood] = createSignal<Position>(createInitialFood(snake()));
+  const [food, setFood] = createSignal<Position>({ x: 0, y: 0 });
   const [isPaused, setIsPaused] = createSignal(false);
   const [gameOver, setGameOver] = createSignal(false);
   const [hasWon, setHasWon] = createSignal(false);
 
   const resetGame = () => {
-    const nextSnake = createInitialSnake();
+    if (terminalTooSmall()) {
+      setSnake([]);
+      setDirection(INITIAL_DIRECTION);
+      setQueuedDirection(null);
+      setFood({ x: 0, y: 0 });
+      setIsPaused(false);
+      setGameOver(false);
+      setHasWon(false);
+      return;
+    }
+
+    const nextSnake = createInitialSnake(boardWidth(), boardHeight());
 
     setSnake(nextSnake);
     setDirection(INITIAL_DIRECTION);
     setQueuedDirection(null);
-    setFood(createInitialFood(nextSnake));
+    setFood(createInitialFood(nextSnake, boardWidth(), boardHeight()));
     setIsPaused(false);
     setGameOver(false);
     setHasWon(false);
   };
+
+  createEffect(() => {
+    boardWidth();
+    boardHeight();
+    resetGame();
+  });
 
   useKeyboard((key) => {
     if (key.name === "escape") {
@@ -152,7 +206,7 @@ const App = () => {
     }
 
     if (key.name === "space" || key.name === "p") {
-      if (!gameOver()) {
+      if (!gameOver() && !terminalTooSmall()) {
         setIsPaused((current) => !current);
       }
       return;
@@ -169,7 +223,13 @@ const App = () => {
               ? "right"
               : null;
 
-    if (!nextDirection || gameOver() || isPaused()) {
+    if (
+      !nextDirection ||
+      gameOver() ||
+      isPaused() ||
+      terminalTooSmall() ||
+      snake().length === 0
+    ) {
       return;
     }
 
@@ -181,13 +241,18 @@ const App = () => {
   });
 
   const interval = setInterval(() => {
-    if (gameOver() || isPaused()) {
+    if (gameOver() || isPaused() || terminalTooSmall() || snake().length === 0) {
       return;
     }
 
     const currentSnake = snake();
     const appliedDirection = queuedDirection() ?? direction();
-    const nextHead = getNextHead(currentSnake[0]!, appliedDirection);
+    const nextHead = getNextHead(
+      currentSnake[0]!,
+      appliedDirection,
+      boardWidth(),
+      boardHeight(),
+    );
     const willEat = positionsEqual(nextHead, food());
     const collisionBody = willEat ? currentSnake : currentSnake.slice(0, -1);
 
@@ -210,7 +275,11 @@ const App = () => {
       return;
     }
 
-    const nextFood = getRandomFreePosition(nextSnake);
+    const nextFood = getRandomFreePosition(
+      nextSnake,
+      boardWidth(),
+      boardHeight(),
+    );
 
     if (!nextFood) {
       setHasWon(true);
@@ -223,8 +292,16 @@ const App = () => {
 
   onCleanup(() => clearInterval(interval));
 
-  const score = () => snake().length - INITIAL_SNAKE.length;
+  const score = () => Math.max(0, snake().length - INITIAL_SNAKE_LENGTH);
   const statusText = () => {
+    if (terminalTooSmall()) {
+      return `Terminal too small. Need at least ${
+        MIN_BOARD_WIDTH * CELL_WIDTH + RESERVED_HORIZONTAL_CHARS
+      }x${
+        MIN_BOARD_HEIGHT + RESERVED_VERTICAL_LINES
+      }. Resize and the game will reset automatically.`;
+    }
+
     if (hasWon()) {
       return "You filled the board. Press R to play again.";
     }
@@ -239,7 +316,9 @@ const App = () => {
 
     return "Arrows/WASD move. Space/P pause. R restart. Esc exit.";
   };
+
   const statusColor = () => {
+    if (terminalTooSmall()) return "#ffcc66";
     if (hasWon()) return "#33cc66";
     if (gameOver()) return "#ff5555";
     if (isPaused()) return "#ffcc66";
@@ -250,10 +329,15 @@ const App = () => {
     <box border padding={1} flexDirection="column" gap={1}>
       <text>Solid Snake Terminal</text>
       <text>
-        Score: {score()} | Length: {snake().length} | Speed: {TICK_MS}ms
+        Score: {score()} | Length: {snake().length} | Board: {boardWidth()}x
+        {boardHeight()} | Speed: {TICK_MS}ms
       </text>
-      <box border padding={1}>
-        <text>{drawBoard(snake(), food())}</text>
+      <box border padding={0}>
+        <text>
+          {terminalTooSmall()
+            ? "Resize the terminal to start the game."
+            : drawBoard(snake(), food(), boardWidth(), boardHeight())}
+        </text>
       </box>
       <text fg={statusColor()}>{statusText()}</text>
       <text fg="#666666">
