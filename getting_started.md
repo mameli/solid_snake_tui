@@ -143,9 +143,9 @@ That is why the final project uses cells like:
 
 ```ts
 const EMPTY_CELL = "  ";
-const HEAD_CELL = "@ ";
-const BODY_CELL = "o ";
-const FOOD_CELL = "* ";
+const HEAD_CELL = "🐲";
+const BODY_CELL = "* ";
+const FOOD_CELL = "🍎";
 ```
 
 Each logical cell uses two terminal characters in width. This makes the movement feel more balanced.
@@ -978,6 +978,50 @@ Use this order:
 13. pause, restart, score
 14. dynamic board size
 15. full reset on terminal resize
+
+## Notes about the current implementation
+
+The current project has a few practical details that are worth knowing.
+
+### The body uses a simple single-character cell
+
+The current body rendering is intentionally simple:
+
+```ts
+const BODY_CELL = "* ";
+```
+
+The head and food use emoji, while the tail is directional:
+
+- `< ` for left
+- `> ` for right
+- `^ ` for up
+- `v ` for down
+
+### Speed is shown as `1x` or `2x`
+
+The current UI does not show speed in milliseconds.
+It shows:
+
+- `1x` for normal speed
+- `2x` when you press the same direction again
+
+### The game resets on terminal resize
+
+This is intentional.
+
+When the terminal size changes:
+
+- the board is recalculated
+- the game state is reset
+
+This is much simpler than trying to preserve the current game.
+
+### The board keeps a bottom safety line
+
+In a terminal UI, the visual content area and the border area can be easy to misjudge by one row.
+
+The current implementation keeps one extra safe line at the bottom so the snake cannot appear visually inside the bottom border of the box.
 
 ## Official docs
 
