@@ -16,12 +16,29 @@ Play immediately without installing globally:
 bunx solid-snake-tui
 ```
 
+## Run with `npx`
+
+You can also run it with npm tooling:
+
+```bash
+npx solid-snake-tui
+```
+
 ## Install globally
 
 If you want a persistent command:
 
+With Bun:
+
 ```bash
 bun add -g solid-snake-tui
+solid-snake-tui
+```
+
+With npm:
+
+```bash
+npm install -g solid-snake-tui
 solid-snake-tui
 ```
 
