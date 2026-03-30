@@ -5,15 +5,16 @@ import {
   useRenderer,
   useTerminalDimensions,
 } from "@opentui/solid";
+import type { JSX } from "@opentui/solid";
 import { createEffect, createSignal, onCleanup } from "solid-js";
 
 const TICK_MS = 120;
 const INITIAL_DIRECTION = "right" as const;
 const INITIAL_SNAKE_LENGTH = 3;
 const EMPTY_CELL = "  ";
-const FOOD_CELL = "* ";
-const HEAD_CELL = "@ ";
-const BODY_CELL = "o ";
+const FOOD_CELL = "🍎 ";
+const HEAD_CELL = "🐲";
+const BODY_CELL = "x ";
 const CELL_WIDTH = HEAD_CELL.length;
 const MIN_BOARD_WIDTH = 8;
 const MIN_BOARD_HEIGHT = 6;
@@ -116,13 +117,13 @@ function drawBoard(
   food: Position,
   boardWidth: number,
   boardHeight: number,
-) {
-  let output = "";
+): JSX.Element[] {
+  const output: JSX.Element[] = [];
 
   for (let y = 0; y < boardHeight; y += 1) {
     for (let x = 0; x < boardWidth; x += 1) {
       if (x === food.x && y === food.y) {
-        output += FOOD_CELL;
+        output.push(<span style={{ fg: "#ff4d4f" }}>{FOOD_CELL}</span>);
         continue;
       }
 
@@ -131,16 +132,16 @@ function drawBoard(
       );
 
       if (segmentIndex === 0) {
-        output += HEAD_CELL;
+        output.push(<span style={{ fg: "#22c55e" }}>{HEAD_CELL}</span>);
       } else if (segmentIndex > 0) {
-        output += BODY_CELL;
+        output.push(<span style={{ fg: "#22c55e" }}>{BODY_CELL}</span>);
       } else {
-        output += EMPTY_CELL;
+        output.push(<span>{EMPTY_CELL}</span>);
       }
     }
 
     if (y < boardHeight - 1) {
-      output += "\n";
+      output.push(<br />);
     }
   }
 
