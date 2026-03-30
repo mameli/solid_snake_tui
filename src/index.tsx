@@ -17,6 +17,7 @@ const MIN_BOARD_WIDTH = 8;
 const MIN_BOARD_HEIGHT = 6;
 const RESERVED_HORIZONTAL_CHARS = 6;
 const RESERVED_VERTICAL_LINES = 13;
+const BOARD_BOTTOM_SAFE_LINES = 1;
 
 const COLORS = {
   snake: "#22c55e",
@@ -83,7 +84,10 @@ function getBoardSize(terminalWidth: number, terminalHeight: number): BoardSize 
       1,
       Math.floor(Math.max(0, terminalWidth - RESERVED_HORIZONTAL_CHARS) / CELL_WIDTH),
     ),
-    height: Math.max(1, terminalHeight - RESERVED_VERTICAL_LINES),
+    height: Math.max(
+      1,
+      terminalHeight - RESERVED_VERTICAL_LINES - BOARD_BOTTOM_SAFE_LINES,
+    ),
   };
 }
 
@@ -408,7 +412,7 @@ const App = () => {
       return `Terminal too small. Need at least ${
         MIN_BOARD_WIDTH * CELL_WIDTH + RESERVED_HORIZONTAL_CHARS
       }x${
-        MIN_BOARD_HEIGHT + RESERVED_VERTICAL_LINES
+        MIN_BOARD_HEIGHT + RESERVED_VERTICAL_LINES + BOARD_BOTTOM_SAFE_LINES
       }. Resize and the game will reset automatically.`;
     }
 
