@@ -1,6 +1,6 @@
 {
   "name": "solid-snake-tui",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Snake in the terminal built with OpenTUI and Solid",
   "type": "module",
   "module": "src/index.tsx",
@@ -9,6 +9,7 @@
   },
   "files": [
     "bin",
+    "public",
     "src",
     "README.md",
     "bunfig.toml",

@@ -2,6 +2,8 @@
 
 Snake for the terminal, built with Bun, OpenTUI, and Solid.
 
+![Solid Snake TUI](./public/solid_snake.jpg)
+
 ## Requirements
 
 - [Bun](https://bun.sh/)
