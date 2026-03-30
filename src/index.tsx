@@ -1,4 +1,10 @@
-import { render, useKeyboard, useTerminalDimensions } from "@opentui/solid";
+import { createCliRenderer } from "@opentui/core";
+import {
+  render,
+  useKeyboard,
+  useRenderer,
+  useTerminalDimensions,
+} from "@opentui/solid";
 import { createEffect, createSignal, onCleanup } from "solid-js";
 
 const TICK_MS = 120;
@@ -142,6 +148,7 @@ function drawBoard(
 }
 
 const App = () => {
+  const renderer = useRenderer();
   const terminalDimensions = useTerminalDimensions();
   const boardWidth = () =>
     Math.max(
@@ -197,7 +204,8 @@ const App = () => {
 
   useKeyboard((key) => {
     if (key.name === "escape") {
-      process.exit(0);
+      renderer.destroy();
+      return;
     }
 
     if (key.name === "r") {
@@ -347,7 +355,9 @@ const App = () => {
   );
 };
 
-render(App, {
+const renderer = await createCliRenderer({
   exitOnCtrlC: true,
   targetFps: 30,
 });
+
+await render(App, renderer);
