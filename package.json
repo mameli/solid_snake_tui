@@ -1,5 +1,5 @@
 {
-  "name": "solid_snake",
+  "name": "solid-snake-tui",
   "module": "src/index.tsx",
   "type": "module",
   "private": true,

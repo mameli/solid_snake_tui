@@ -1,4 +1,4 @@
-# solid
+# Solid Snake TUI
 
 To install dependencies:
 

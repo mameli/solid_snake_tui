@@ -15,7 +15,7 @@ const INITIAL_SNAKE_LENGTH = 3;
 const EMPTY_CELL = "  ";
 const FOOD_CELL = "🍎";
 const HEAD_CELL = "🐲";
-const BODY_CELL = "x ";
+const BODY_CELL = "* ";
 const TAIL_LEFT_CELL = "< ";
 const TAIL_RIGHT_CELL = "> ";
 const TAIL_UP_CELL = "^ ";
@@ -397,7 +397,7 @@ const App = () => {
 
   return (
     <box border padding={1} flexDirection="column" gap={1}>
-      <text>Solid Snake Terminal</text>
+      <text>Solid Snake TUI</text>
       <text>
         Score: {score()} | Board: {boardWidth()}x{boardHeight()} | Speed:{" "}
         {speedLabel()}
