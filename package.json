@@ -14,7 +14,6 @@
   "files": [
     "bin",
     "dist",
-    "public",
     "README.md"
   ],
   "scripts": {
