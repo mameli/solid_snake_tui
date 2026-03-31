@@ -21,6 +21,7 @@
     "build": "bun run scripts/build.ts",
     "dev": "bun run --watch src/index.tsx",
     "start": "bun run src/index.tsx",
+    "launch:dist": "sh ./scripts/launch-distributed.sh",
     "prepack": "bun run build"
   },
   "engines": {
