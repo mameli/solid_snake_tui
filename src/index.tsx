@@ -13,20 +13,50 @@ const BOOST_MULTIPLIER = 2;
 const INITIAL_DIRECTION = "right" as const;
 const INITIAL_SNAKE_LENGTH = 3;
 const CELL_WIDTH = 2;
-const MIN_BOARD_WIDTH = 41 ;
+const MIN_BOARD_WIDTH = 20;
 const MIN_BOARD_HEIGHT = 6;
 const RESERVED_HORIZONTAL_CHARS = 6;
 const RESERVED_VERTICAL_LINES = 13;
 const BOARD_BOTTOM_SAFE_LINES = 1;
 
 const COLORS = {
-  snake: "#22c55e",
-  food: "#ff4d4f",
-  warning: "#ffcc66",
-  success: "#33cc66",
-  danger: "#ff5555",
-  muted: "#888888",
-  subtle: "#666666",
+  appBackground: "#282c34",
+  panelBackground: "#282c34",
+  boardBackground: "#282c34",
+  text: "#dcdfe4",
+  secondaryText: "#dcdfe495",
+  snake: "#98c379",
+  food: "#e06c75",
+  warning: "#e5c07b",
+  success: "#98c379",
+  danger: "#e06c75",
+  border: "#dcdfe4",
+  boardBorder: "#dcdfe4",
+} as const;
+
+const KEY_TO_DIRECTION = {
+  up: "up",
+  w: "up",
+  down: "down",
+  s: "down",
+  left: "left",
+  a: "left",
+  right: "right",
+  d: "right",
+} as const;
+
+const DIRECTION_VECTORS = {
+  up: { x: 0, y: -1 },
+  down: { x: 0, y: 1 },
+  left: { x: -1, y: 0 },
+  right: { x: 1, y: 0 },
+} as const;
+
+const OPPOSITE_DIRECTIONS = {
+  up: "down",
+  down: "up",
+  left: "right",
+  right: "left",
 } as const;
 
 const CELLS = {
@@ -54,7 +84,51 @@ type BoardSize = {
 
 type CellRender = {
   color?: string;
+  background?: string;
   content: string;
+};
+
+const TAIL_CELLS: Record<Direction, string> = {
+  right: CELLS.tailLeft,
+  left: CELLS.tailRight,
+  down: CELLS.tailUp,
+  up: CELLS.tailDown,
+};
+
+type GameStatus = "tooSmall" | "won" | "gameOver" | "paused" | "running";
+
+type GameSnapshot = {
+  snake: Position[];
+  direction: Direction;
+  queuedDirection: Direction | null;
+  food: Position;
+  isPaused: boolean;
+  gameOver: boolean;
+  hasWon: boolean;
+  speedBoost: boolean;
+};
+
+const EMPTY_POSITION: Position = { x: 0, y: 0 };
+
+const STATUS_COPY: Record<GameStatus, string> = {
+  tooSmall: `Terminal too small. Need at least ${
+    MIN_BOARD_WIDTH * CELL_WIDTH + RESERVED_HORIZONTAL_CHARS
+  }x${
+    MIN_BOARD_HEIGHT + RESERVED_VERTICAL_LINES + BOARD_BOTTOM_SAFE_LINES
+  }. Resize and the game will reset automatically.`,
+  won: "You filled the board. Press R to play again.",
+  gameOver: "Game Over. Press R to restart.",
+  paused: "Paused. Press Space or P to resume.",
+  running:
+    "Arrows/WASD move. Press the same direction again for 2x speed. R restart. Esc exit.",
+};
+
+const STATUS_COLORS: Record<GameStatus, string> = {
+  tooSmall: COLORS.warning,
+  won: COLORS.success,
+  gameOver: COLORS.danger,
+  paused: COLORS.warning,
+  running: COLORS.secondaryText,
 };
 
 function positionKey(position: Position) {
@@ -66,12 +140,7 @@ function positionsEqual(a: Position, b: Position) {
 }
 
 function isOppositeDirection(current: Direction, next: Direction) {
-  return (
-    (current === "up" && next === "down") ||
-    (current === "down" && next === "up") ||
-    (current === "left" && next === "right") ||
-    (current === "right" && next === "left")
-  );
+  return OPPOSITE_DIRECTIONS[current] === next;
 }
 
 function wrapCoordinate(value: number, size: number) {
@@ -98,11 +167,7 @@ function isBoardTooSmall(boardSize: BoardSize) {
 }
 
 function getDirectionFromKey(keyName: string): Direction | null {
-  if (keyName === "up" || keyName === "w") return "up";
-  if (keyName === "down" || keyName === "s") return "down";
-  if (keyName === "left" || keyName === "a") return "left";
-  if (keyName === "right" || keyName === "d") return "right";
-  return null;
+  return KEY_TO_DIRECTION[keyName as keyof typeof KEY_TO_DIRECTION] ?? null;
 }
 
 function getNextHead(
@@ -110,19 +175,12 @@ function getNextHead(
   direction: Direction,
   boardSize: BoardSize,
 ): Position {
-  if (direction === "up") {
-    return { x: head.x, y: wrapCoordinate(head.y - 1, boardSize.height) };
-  }
+  const vector = DIRECTION_VECTORS[direction];
 
-  if (direction === "down") {
-    return { x: head.x, y: wrapCoordinate(head.y + 1, boardSize.height) };
-  }
-
-  if (direction === "left") {
-    return { x: wrapCoordinate(head.x - 1, boardSize.width), y: head.y };
-  }
-
-  return { x: wrapCoordinate(head.x + 1, boardSize.width), y: head.y };
+  return {
+    x: wrapCoordinate(head.x + vector.x, boardSize.width),
+    y: wrapCoordinate(head.y + vector.y, boardSize.height),
+  };
 }
 
 function getAdjacentDirection(
@@ -181,7 +239,7 @@ function createInitialSnake(boardSize: BoardSize) {
 }
 
 function createInitialFood(snake: Position[], boardSize: BoardSize) {
-  return getRandomFreePosition(snake, boardSize) ?? { x: 0, y: 0 };
+  return getRandomFreePosition(snake, boardSize) ?? EMPTY_POSITION;
 }
 
 function getTailCell(snake: Position[], boardSize: BoardSize) {
@@ -193,10 +251,7 @@ function getTailCell(snake: Position[], boardSize: BoardSize) {
   const previous = snake[snake.length - 2]!;
   const tailDirection = getAdjacentDirection(tail, previous, boardSize);
 
-  if (tailDirection === "right") return CELLS.tailLeft;
-  if (tailDirection === "left") return CELLS.tailRight;
-  if (tailDirection === "down") return CELLS.tailUp;
-  return CELLS.tailDown;
+  return TAIL_CELLS[tailDirection];
 }
 
 function buildSnakeCellMap(snake: Position[], boardSize: BoardSize) {
@@ -217,8 +272,54 @@ function buildSnakeCellMap(snake: Position[], boardSize: BoardSize) {
   return snakeCells;
 }
 
-function renderCell({ content, color }: CellRender) {
-  return color ? <span style={{ fg: color }}>{content}</span> : <span>{content}</span>;
+function renderCell({ content, color, background }: CellRender) {
+  const style = {
+    ...(color ? { fg: color } : {}),
+    ...(background ? { bg: background } : {}),
+  };
+
+  return <span style={style}>{content}</span>;
+}
+
+function createEmptySnapshot(): GameSnapshot {
+  return {
+    snake: [],
+    direction: INITIAL_DIRECTION,
+    queuedDirection: null,
+    food: EMPTY_POSITION,
+    isPaused: false,
+    gameOver: false,
+    hasWon: false,
+    speedBoost: false,
+  };
+}
+
+function createInitialSnapshot(boardSize: BoardSize): GameSnapshot {
+  const snake = createInitialSnake(boardSize);
+
+  return {
+    ...createEmptySnapshot(),
+    snake,
+    food: createInitialFood(snake, boardSize),
+  };
+}
+
+function getGameStatus({
+  terminalTooSmall,
+  hasWon,
+  gameOver,
+  isPaused,
+}: {
+  terminalTooSmall: boolean;
+  hasWon: boolean;
+  gameOver: boolean;
+  isPaused: boolean;
+}): GameStatus {
+  if (terminalTooSmall) return "tooSmall";
+  if (hasWon) return "won";
+  if (gameOver) return "gameOver";
+  if (isPaused) return "paused";
+  return "running";
 }
 
 function drawBoard(
@@ -235,16 +336,33 @@ function drawBoard(
       const key = positionKey({ x, y });
 
       if (key === foodKey) {
-        output.push(renderCell({ content: CELLS.food, color: COLORS.food }));
+        output.push(
+          renderCell({
+            content: CELLS.food,
+            color: COLORS.food,
+            background: COLORS.boardBackground,
+          }),
+        );
         continue;
       }
 
       const snakeCell = snakeCells.get(key);
 
       if (snakeCell) {
-        output.push(renderCell({ content: snakeCell, color: COLORS.snake }));
+        output.push(
+          renderCell({
+            content: snakeCell,
+            color: COLORS.snake,
+            background: COLORS.boardBackground,
+          }),
+        );
       } else {
-        output.push(renderCell({ content: CELLS.empty }));
+        output.push(
+          renderCell({
+            content: CELLS.empty,
+            background: COLORS.boardBackground,
+          }),
+        );
       }
     }
 
@@ -268,7 +386,7 @@ const App = () => {
   const [queuedDirection, setQueuedDirection] = createSignal<Direction | null>(
     null,
   );
-  const [food, setFood] = createSignal<Position>({ x: 0, y: 0 });
+  const [food, setFood] = createSignal<Position>(EMPTY_POSITION);
   const [isPaused, setIsPaused] = createSignal(false);
   const [gameOver, setGameOver] = createSignal(false);
   const [hasWon, setHasWon] = createSignal(false);
@@ -279,16 +397,18 @@ const App = () => {
   const speedLabel = () => (speedBoost() ? "2x" : "1x");
   const score = () => Math.max(0, snake().length - INITIAL_SNAKE_LENGTH);
 
-  const clearGame = () => {
-    setSnake([]);
-    setDirection(INITIAL_DIRECTION);
-    setQueuedDirection(null);
-    setFood({ x: 0, y: 0 });
-    setIsPaused(false);
-    setGameOver(false);
-    setHasWon(false);
-    setSpeedBoost(false);
+  const applySnapshot = (snapshot: GameSnapshot) => {
+    setSnake(snapshot.snake);
+    setDirection(snapshot.direction);
+    setQueuedDirection(snapshot.queuedDirection);
+    setFood(snapshot.food);
+    setIsPaused(snapshot.isPaused);
+    setGameOver(snapshot.gameOver);
+    setHasWon(snapshot.hasWon);
+    setSpeedBoost(snapshot.speedBoost);
   };
+
+  const clearGame = () => applySnapshot(createEmptySnapshot());
 
   const resetGame = () => {
     const size = boardSize();
@@ -298,16 +418,7 @@ const App = () => {
       return;
     }
 
-    const nextSnake = createInitialSnake(size);
-
-    setSnake(nextSnake);
-    setDirection(INITIAL_DIRECTION);
-    setQueuedDirection(null);
-    setFood(createInitialFood(nextSnake, size));
-    setIsPaused(false);
-    setGameOver(false);
-    setHasWon(false);
-    setSpeedBoost(false);
+    applySnapshot(createInitialSnapshot(size));
   };
 
   const tick = () => {
@@ -407,54 +518,42 @@ const App = () => {
     onCleanup(() => clearInterval(interval));
   });
 
-  const statusText = () => {
-    if (terminalTooSmall()) {
-      return `Terminal too small. Need at least ${
-        MIN_BOARD_WIDTH * CELL_WIDTH + RESERVED_HORIZONTAL_CHARS
-      }x${
-        MIN_BOARD_HEIGHT + RESERVED_VERTICAL_LINES + BOARD_BOTTOM_SAFE_LINES
-      }. Resize and the game will reset automatically.`;
-    }
-
-    if (hasWon()) {
-      return "You filled the board. Press R to play again.";
-    }
-
-    if (gameOver()) {
-      return "Game Over. Press R to restart.";
-    }
-
-    if (isPaused()) {
-      return "Paused. Press Space or P to resume.";
-    }
-
-    return "Arrows/WASD move. Press the same direction again for 2x speed. R restart. Esc exit.";
-  };
-
-  const statusColor = () => {
-    if (terminalTooSmall()) return COLORS.warning;
-    if (hasWon()) return COLORS.success;
-    if (gameOver()) return COLORS.danger;
-    if (isPaused()) return COLORS.warning;
-    return COLORS.muted;
-  };
+  const status = () =>
+    getGameStatus({
+      terminalTooSmall: terminalTooSmall(),
+      hasWon: hasWon(),
+      gameOver: gameOver(),
+      isPaused: isPaused(),
+    });
 
   return (
-    <box border padding={1} flexDirection="column" gap={1}>
-      <text>Solid Snake TUI</text>
-      <text>
+    <box
+      border
+      borderColor={COLORS.border}
+      backgroundColor={COLORS.panelBackground}
+      padding={1}
+      flexDirection="column"
+      gap={1}
+    >
+      <text fg={COLORS.text}>Solid Snake TUI</text>
+      <text fg={COLORS.secondaryText}>
         Score: {score()} | Board: {boardSize().width}x{boardSize().height} |
         Speed: {speedLabel()}
       </text>
-      <box border padding={0}>
-        <text>
+      <box
+        border
+        borderColor={COLORS.boardBorder}
+        backgroundColor={COLORS.boardBackground}
+        padding={0}
+      >
+        <text fg={COLORS.text} bg={COLORS.boardBackground}>
           {terminalTooSmall()
             ? "Resize the terminal to start the game."
             : drawBoard(snake(), food(), boardSize())}
         </text>
       </box>
-      <text fg={statusColor()}>{statusText()}</text>
-      <text fg={COLORS.subtle}>
+      <text fg={STATUS_COLORS[status()]}>{STATUS_COPY[status()]}</text>
+      <text fg={COLORS.secondaryText}>
         Wrap-around is enabled on every side of the board.
       </text>
     </box>
@@ -462,6 +561,7 @@ const App = () => {
 };
 
 const renderer = await createCliRenderer({
+  backgroundColor: COLORS.appBackground,
   exitOnCtrlC: true,
   targetFps: 30,
 });
