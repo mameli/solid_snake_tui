@@ -1,6 +1,6 @@
 {
   "name": "solid-snake-tui",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Snake in the terminal built with OpenTUI and Solid",
   "type": "module",
   "main": "./dist/index.js",
