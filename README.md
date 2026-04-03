@@ -2,7 +2,7 @@
 
 Snake for the terminal, built with Bun, OpenTUI, and Solid.
 
-![Solid Snake TUI](./public/solid_snake.gif)
+![Solid Snake TUI](https://res.cloudinary.com/deoefumc4/image/upload/v1775224508/solid_snake_hfbttb.gif)
 
 ## Why the name?
 
